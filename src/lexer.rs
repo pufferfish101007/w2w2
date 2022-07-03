@@ -46,6 +46,37 @@ pub fn lex(src: &String) -> Option<TokenList> {
             }
         }
         
+        fn check_token(tokenlist: &mut TokenList, index: usize) {
+            match tokenlist.last().unwrap_or(&mut Space) {
+                Instruction(string) => {
+                    if string.len() == 3 {
+                        let lcs = &string.to_lowercase()[..];
+                        if let "nan" | "inf" = lcs {
+                            let new = string.clone();
+                            tokenlist[index] = NumberLiteral { string: new, hex: false, exponent: false, dec_point: false, last_char_is_exponent: false, signed: false };
+                        }
+                    }
+                },
+                Reserved(string) => {
+                    if string.len() == 4 {
+                        let lcs = &string.to_lowercase()[..];
+                        if let "+inf" | "-inf" = lcs {
+                            let new = string.clone();
+                            tokenlist[index] = NumberLiteral { string: new, hex: false, exponent: false, dec_point: false, last_char_is_exponent: false, signed: false };
+                        }
+                    }
+                },
+                StringLiteral { string, backslash, .. } => {
+                    let last_char = unsafe { string.chars().last().unwrap_unchecked() };
+                    if last_char != '"' || (*backslash && last_char == '"') {
+                        let new = string.clone();
+                        tokenlist[index] = Reserved(new);
+                    }
+                },
+                _ => {}
+            };
+        }
+        
         for ch in src.chars() {
             let new_token: Option<Token> = {
                 let mut space = Space;
@@ -319,16 +350,15 @@ pub fn lex(src: &String) -> Option<TokenList> {
             };
             if let Some(token) = new_token {
                 token_list.push(token);
-            }
-        };
-        unsafe {
-            if let StringLiteral { string, .. } = token_list.last_mut().unwrap_or(&mut Space) {
-                if string.chars().last().unwrap_unchecked() != '"' {
-                    let new = string.clone();
-                    token_list.remove(token_list.len() - 1);
-                    token_list.push(Reserved(new));
+                let len = token_list.len();
+                if len > 1 {
+                    check_token(&mut token_list, len - 2);
                 }
             }
+        };
+        let len = token_list.len();
+        if len > 0 {
+            check_token(&mut token_list, len - 1);
         }
         token_list.retain(|t| if let Space = t { false } else { true });
         Some(token_list)
@@ -695,6 +725,42 @@ mod tests {
                 NumberLiteral { string, .. } if *string == s
             );
             let s = "0x5ap-b".to_string();
+            let l = lex(&s).unwrap();
+            assert_eq!(l.len(), 1);
+            assert_matches!(
+                l.get(0).unwrap(),
+                NumberLiteral { string, .. } if *string == s
+            );
+        }
+        
+        #[test]
+        fn nan() {
+            let s = "nan".to_string();
+            let l = lex(&s).unwrap();
+            assert_eq!(l.len(), 1);
+            assert_matches!(
+                l.get(0).unwrap(),
+                NumberLiteral { string, .. } if *string == s
+            );
+        }
+        
+        #[test]
+        fn inf() {
+            let s = "inf".to_string();
+            let l = lex(&s).unwrap();
+            assert_eq!(l.len(), 1);
+            assert_matches!(
+                l.get(0).unwrap(),
+                NumberLiteral { string, .. } if *string == s
+            );
+            let s = "+inf".to_string();
+            let l = lex(&s).unwrap();
+            assert_eq!(l.len(), 1);
+            assert_matches!(
+                l.get(0).unwrap(),
+                NumberLiteral { string, .. } if *string == s
+            );
+            let s = "-inf".to_string();
             let l = lex(&s).unwrap();
             assert_eq!(l.len(), 1);
             assert_matches!(
