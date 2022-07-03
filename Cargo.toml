@@ -1,0 +1,19 @@
+[package]
+name = "wat-compiler"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "wasmtools"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wat-compiler"
+path = "src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+likely_stable = "0.1.2"
+cached = "0.34.1"
+regex = "1"
