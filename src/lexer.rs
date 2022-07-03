@@ -263,10 +263,10 @@ pub fn lex(src: &String) -> Option<TokenList> {
                         },
                         '+' | '-' => match last_token {
                             LParen | RParen | Space => Some(NumberLiteral { string: ch.to_string(), signed: true, hex: false, dec_point: false, exponent: false, last_char_is_exponent: false }),
-                            NumberLiteral { string, hex, exponent, last_char_is_exponent, .. } => {
+                            NumberLiteral { string, exponent, last_char_is_exponent, .. } => {
                                 if !*exponent {
                                     last_reserved!(string, ch)
-                                } else if *hex && *last_char_is_exponent {
+                                } else if *last_char_is_exponent {
                                     string.push(ch);
                                     *last_char_is_exponent = false;
                                     None
@@ -280,7 +280,23 @@ pub fn lex(src: &String) -> Option<TokenList> {
                                 None
                             }
                         },
-                        '!' | '#' | '%' | '&' | '\'' | '*' | '/' | ':' | '<' | '=' | '>' | '?' | '^' | '_' | '`' | '|' | '~' => match last_token {
+                        '_' => match last_token {
+                            StringLiteral { string, backslash } => add_to_string_literal!(string, backslash, ch),
+                            Comment {  string, .. } | Annotation(string) | Identifier(string) | Instruction(string) | Reserved(string) => {
+                                string.push(ch);
+                                None
+                            },
+                            NumberLiteral { string, signed, last_char_is_exponent, .. } => {
+                                if *last_char_is_exponent || (*signed && string.len() == 1) {
+                                    last_reserved!(string, ch)
+                                } else {
+                                    string.push('_');
+                                    None
+                                }
+                            },
+                            Space | RParen | LParen => Some(Reserved(ch.to_string()))
+                        },
+                        '!' | '#' | '%' | '&' | '\'' | '*' | '/' | ':' | '<' | '=' | '>' | '?' | '^' | '`' | '|' | '~' => match last_token {
                             StringLiteral { string, backslash } => add_to_string_literal!(string, backslash, ch),
                             Comment {  string, .. } | Annotation(string) | Identifier(string) | Instruction(string) | Reserved(string) => {
                                 string.push(ch);
@@ -679,6 +695,24 @@ mod tests {
                 NumberLiteral { string, .. } if *string == s
             );
             let s = "0x5ap-b".to_string();
+            let l = lex(&s).unwrap();
+            assert_eq!(l.len(), 1);
+            assert_matches!(
+                l.get(0).unwrap(),
+                NumberLiteral { string, .. } if *string == s
+            );
+        }
+        
+        #[test]
+        fn numbers_with_underscores() {
+            let s = "3.141_592_653_589_794_232".to_string();
+            let l = lex(&s).unwrap();
+            assert_eq!(l.len(), 1);
+            assert_matches!(
+                l.get(0).unwrap(),
+                NumberLiteral { string, .. } if *string == s
+            );
+            let s = "0x1fd_a4c_0b8_afe_794_36d".to_string();
             let l = lex(&s).unwrap();
             assert_eq!(l.len(), 1);
             assert_matches!(
