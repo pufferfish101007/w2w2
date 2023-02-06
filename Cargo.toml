@@ -4,16 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "wasmtools"
+name = "w2w2"
 path = "src/lib.rs"
 
-[[bin]]
-name = "w2w2"
-path = "src/main.rs"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dev-dependencies]
+assert_matches = "1.5"
+rustversion = "1.0"
 
 [dependencies]
+wee_alloc = "0.4"
 #likely_stable = "0.1.2"
 #cached = "0.34.1"
 #regex = "1"
